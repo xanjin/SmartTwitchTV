@@ -3282,9 +3282,127 @@ function Main_HandleDeeplinkIntent(obj) {
 
     if (type === 'live' && content) {
         Main_DeeplinkOpenLive(content);
+    } else if (type === 'video' && content) {
+        Main_DeeplinkOpenVod(content);
     }
 
     Main_EventDEEPLINK(type, content);
+}
+
+var Main_DeeplinkVodOffset = 1;
+
+function Main_DeeplinkOpenVod(content) {
+    var vod = Main_DeeplinkParseVod(content),
+        theUrl;
+
+    if (!vod.id) {
+        Main_DeeplinkOpenVodError();
+        return;
+    }
+
+    Main_DeeplinkVodOffset = vod.offset;
+    theUrl = Main_helix_api + 'videos?id=' + encodeURIComponent(vod.id);
+
+    BaseXmlHttpGet(theUrl, Main_DeeplinkOpenVodSuccess, Main_DeeplinkOpenVodError, null, null, true);
+}
+
+function Main_DeeplinkParseVod(content) {
+    var parts = content.split('?'),
+        id = parts[0],
+        offset = 1,
+        query,
+        params,
+        i,
+        pair;
+
+    if (parts.length > 1) {
+        query = parts.slice(1).join('?');
+        params = query.split('&');
+
+        for (i = 0; i < params.length; i++) {
+            pair = params[i].split('=');
+
+            if (pair[0].toLowerCase() === 't' && pair.length > 1) {
+                offset = Main_DeeplinkParseVodTime(decodeURIComponent(pair.slice(1).join('=')));
+                break;
+            }
+        }
+    }
+
+    return {
+        id: id,
+        offset: offset
+    };
+}
+
+function Main_DeeplinkParseVodTime(value) {
+    var hours = 0,
+        minutes = 0,
+        seconds = 0,
+        match;
+
+    if (/^\d+$/.test(value)) {
+        seconds = parseInt(value, 10);
+        return seconds > 0 ? seconds : 1;
+    }
+
+    match = value.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+
+    if (!match) return 1;
+
+    hours = parseInt(match[1] || 0, 10);
+    minutes = parseInt(match[2] || 0, 10);
+    seconds = parseInt(match[3] || 0, 10);
+
+    seconds += minutes * 60 + hours * 3600;
+
+    return seconds > 0 ? seconds : 1;
+}
+
+function Main_DeeplinkOpenVodSuccess(response) {
+    response = JSON.parse(response);
+
+    if (!response.data || !response.data.length) {
+        Main_DeeplinkOpenVodError();
+        return;
+    }
+
+    var data = ScreensObj_VodCellArray(response.data[0], false, null, null);
+
+    Main_clearAllPlayerEvents();
+
+    Play_data = JSON.parse(JSON.stringify(Play_data_base));
+    Main_values_Play_data = data;
+
+    Main_values.Main_selectedChannelDisplayname = data[1];
+    ChannelVod_createdAt = data[2];
+
+    Play_data.data[3] = data[3] ? data[3] : '';
+    ChannelVod_game = Play_data.data[3] ? STR_STARTED + STR_PLAYING + Play_data.data[3] : '';
+    ChannelVod_views = data[4];
+
+    if (data[16]) {
+        Play_data.data[18] = data[16];
+    }
+
+    Main_values.Main_selectedChannel = data[6];
+    Main_values.ChannelVod_vodId = data[7];
+    Main_vodOffset = Main_DeeplinkVodOffset;
+
+    ChannelVod_language = data[9];
+    ChannelVod_title = data[10];
+    Play_DurationSeconds = parseInt(data[11]);
+
+    Main_values.Main_selectedChannel_id = data[14];
+    Main_values.Main_selectedChannelLogo = data[15];
+
+    Main_openVod();
+
+    Main_EventPlay('vod', data[6], data[3], data[9], 'deeplink');
+}
+
+function Main_DeeplinkOpenVodError() {
+    console.log('Unable to open VOD deeplink');
 }
 
 function Main_DeeplinkOpenLive(login) {
