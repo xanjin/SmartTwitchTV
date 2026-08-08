@@ -1688,6 +1688,7 @@ function Main_openStream() {
 }
 
 function Main_OpenClip(data, id, idsArray, handleKeyDownFunction, screen) {
+    PlayClip_DeeplinkStandalone = false;
     if (Main_ThumbOpenIsNull(id, idsArray[0])) return;
 
     Main_clearAllPlayerEvents();
@@ -3284,6 +3285,8 @@ function Main_HandleDeeplinkIntent(obj) {
         Main_DeeplinkOpenLive(content);
     } else if (type === 'video' && content) {
         Main_DeeplinkOpenVod(content);
+    } else if (type === 'clip' && content) {
+        Main_DeeplinkOpenClip(content);
     }
 
     Main_EventDEEPLINK(type, content);
@@ -3403,6 +3406,73 @@ function Main_DeeplinkOpenVodSuccess(response) {
 
 function Main_DeeplinkOpenVodError() {
     console.log('Unable to open VOD deeplink');
+}
+
+function Main_DeeplinkOpenClip(id) {
+var clipId = id.split('?')[0],
+        theUrl;
+
+    if (!clipId) {
+        Main_DeeplinkOpenClipError();
+        return;
+    }
+
+    theUrl = Main_helix_api + 'clips?id=' + encodeURIComponent(clipId);
+
+    BaseXmlHttpGet(theUrl, Main_DeeplinkOpenClipSuccess, Main_DeeplinkOpenClipError, null, null, true);
+}
+
+function Main_DeeplinkOpenClipSuccess(response) {
+response = JSON.parse(response);
+
+    if (!response.data || !response.data.length) {
+        Main_DeeplinkOpenClipError();
+        return;
+    }
+
+    var data = ScreensObj_ClipCellArray(response.data[0], false, null);
+
+    Main_clearAllPlayerEvents();
+
+    Play_data = JSON.parse(JSON.stringify(Play_data_base));
+    Main_values_Play_data = data;
+
+    ChannelClip_playUrl = data[0];
+    Play_DurationSeconds = parseInt(data[1]);
+    Main_values.Main_selectedChannel_id = data[2];
+
+    Play_data.data[3] = data[3] ? data[3] : '';
+    ChannelClip_game = Play_data.data[3] ? STR_PLAYING + Play_data.data[3] : '';
+    ChannelClip_game_Id = data[18];
+
+    if (ChannelClip_game_Id) {
+        Play_data.data[18] = ChannelClip_game_Id;
+    }
+
+    Main_values.Main_selectedChannelDisplayname = data[4];
+    Main_values.Main_selectedChannelLogo = data[5];
+    ChannelClip_Id = data[7];
+    Main_values.Main_selectedChannel = data[6];
+    Main_values.ChannelVod_vodId = data[8];
+    ChannelVod_vodOffset = parseInt(data[9]);
+
+    ChannelClip_title = data[10];
+    ChannelClip_language = data[11];
+    ChannelClip_createdAt = STR_CREATED_AT + data[16];
+    ChannelClip_views = data[14] + STR_VIEWS;
+
+    Main_hideScene1DocAndCallBack(function () {
+        Main_showScene2Doc();
+        Main_PlayClipHandleKeyDown();
+        PlayClip_DeeplinkStandalone = true;
+        PlayClip_Start();
+
+        Main_EventPlay('clip', data[6], data[3], data[17], 'deeplink');
+    });
+}
+
+function Main_DeeplinkOpenClipError() {
+    console.log('Unable to open clip deeplink');
 }
 
 function Main_DeeplinkOpenLive(login) {
