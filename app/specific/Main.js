@@ -3409,7 +3409,7 @@ function Main_DeeplinkOpenVodError() {
 }
 
 function Main_DeeplinkOpenClip(id) {
-var clipId = id.split('?')[0],
+    var clipId = id.split('?')[0],
         theUrl;
 
     if (!clipId) {
@@ -3423,7 +3423,7 @@ var clipId = id.split('?')[0],
 }
 
 function Main_DeeplinkOpenClipSuccess(response) {
-response = JSON.parse(response);
+    response = JSON.parse(response);
 
     if (!response.data || !response.data.length) {
         Main_DeeplinkOpenClipError();
