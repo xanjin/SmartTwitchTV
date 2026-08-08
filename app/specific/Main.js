@@ -3270,13 +3270,48 @@ function Main_onNewIntentClearPlay() {
 function Main_HandleDeeplinkIntent(obj) {
     console.log('Main_HandleDeeplinkIntent', obj);
 
-    var objContent = Main_GetDeeplinkObj(obj);
+    var objContent = Main_GetDeeplinkObj(obj),
+        type = objContent.type ? objContent.type.toLowerCase() : '',
+        content = objContent.content ? objContent.content : '';
+
+    try {
+        content = decodeURIComponent(content);
+    } catch (e) {}
 
     console.log('objContent', objContent);
 
-    //TODO make the handle for the objContent
+    if (type === 'live' && content) {
+        Main_DeeplinkOpenLive(content);
+    }
 
-    Main_EventDEEPLINK(obj);
+    Main_EventDEEPLINK(type, content);
+}
+
+function Main_DeeplinkOpenLive(login) {
+    var theUrl = Main_helix_api + 'streams?user_login=' + encodeURIComponent(login.toLowerCase());
+
+    BaseXmlHttpGet(theUrl, Main_DeeplinkOpenLiveSuccess, Main_DeeplinkOpenLiveError, null, null, true);
+}
+
+function Main_DeeplinkOpenLiveSuccess(response) {
+    response = JSON.parse(response);
+
+    if (response.data && response.data.length) {
+        Main_onNewIntent(
+            JSON.stringify({
+                obj: response.data[0],
+                type: 'LIVE',
+                screen: 2
+            })
+        );
+        return;
+    }
+
+    Main_DeeplinkOpenLiveError();
+}
+
+function Main_DeeplinkOpenLiveError() {
+    console.log('Unable to open live deeplink');
 }
 
 function Main_GetDeeplinkObj(obj) {
@@ -3313,7 +3348,8 @@ function Main_onNewIntent(mobj) {
         } else if (ScreenObj[Main_values.Main_Go].exit_fun) ScreenObj[Main_values.Main_Go].exit_fun();
 
         Play_data = JSON.parse(JSON.stringify(Play_data_base));
-        Play_data.data = ScreensObj_LiveCellArray(obj.obj);
+        Main_values_Play_data = ScreensObj_LiveCellArray(obj.obj);
+        Play_data.data = Main_values_Play_data;
 
         Main_openStream();
 
